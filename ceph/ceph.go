@@ -63,6 +63,35 @@ func (i *Client) createS3Bucket(ctx context.Context, diags *diagnostics, name, a
 	return nil
 }
 
+func (i *Client) setS3BucketPolicy(ctx context.Context, diags *diagnostics, name, acl string) error {
+	var sc, tryCount = 0, 3
+	var data []byte
+	var err error
+	for tryCount > 0 {
+		tryCount--
+		sc, data, err = send(ctx, i, Request{method: "PUT", name: name, headers: map[string]string{"x-amz-acl": acl}})
+		if err != nil {
+			return err
+		}
+		if sc == http.StatusOK {
+			return nil
+		}
+		//if sc == http.StatusConflict && strings.Contains(string(data), "<Code>BucketAlreadyExists</Code>") {
+		//	return fmt.Errorf("createBucket: '%s' bucket already exists under different user’s ownership", name)
+		//}
+
+		//if tryCount > 0 {
+			//// Sleep before next try. If the S3 instance were just created we often get an HTTP 403 and an error message with
+			//// "<Code>InvalidAccessKeyId</Code>" the first time we try to create a bucket in the new S3 instance.
+			//time.Sleep(2 * time.Second)
+		//}
+	}
+	if sc > 299 {
+		return fmt.Errorf("createBucket: failed to create bucket, status code: %d, response: %s", sc, data)
+	}
+	return nil
+}
+
 func (i *Client) deleteS3Bucket(ctx context.Context, name string) error {
 	sc, data, err := send(ctx, i, Request{method: "DELETE", name: name})
 	if err != nil {
